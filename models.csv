@@ -1,0 +1,5 @@
+m,Qwen3.5-27B,/home/gypsum/models/qwen3.5/Qwen3.5-27B-UD-Q4_K_XL.gguf
+m,Qwopus3.5-27B,/home/gypsum/models/qwen3.5/Qwopus3.5-27B-v3-Q4_K_M.gguf
+m,Gemma4-31B,/home/gypsum/models/gemma4/gemma-4-31B-it-UD-Q4_K_XL.gguf
+mm,qwen3.5/mmproj-F16,/home/gypsum/models/qwen3.5/mmproj-F16.gguf
+mm,gemma4/mmproj-BF16,/home/gypsum/models/gemma4/mmproj-BF16.gguf
