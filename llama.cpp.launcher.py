@@ -732,7 +732,7 @@ class MainWindow(MSFluentWindow):
         # 模型参数
         ctx_text = mi.ctxEdit.text().strip()
         if ctx_text:
-            parts.extend(['-c', str(int(ctx_text) * 1024)])
+            parts.extend(['-c', str(int(ctx_text) * 1000)])
 
         predict = mi.predictEdit.text().strip()
         if predict:
