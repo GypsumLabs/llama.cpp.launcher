@@ -5,7 +5,7 @@ import re
 import csv
 import json
 import subprocess
-from PySide6.QtCore import Qt, QThread, Signal
+from PySide6.QtCore import Qt, QThread, Signal, QTimer
 from PySide6.QtGui import QIcon, QColor, QFont, QTextCursor
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QPlainTextEdit, QLabel, QFrame)
 
@@ -615,9 +615,16 @@ class LogInterface(QWidget):
         mainLayout.setContentsMargins(36, 20, 36, 20)
         mainLayout.setSpacing(12)
 
+        titleLayout = QHBoxLayout()
+        titleLayout.setContentsMargins(0, 0, 0, 0)
         self.titleLabel = QLabel('终端', self)
         self.titleLabel.setStyleSheet('font: 33px "Segoe UI", "Microsoft YaHei"; background: transparent;')
-        mainLayout.addWidget(self.titleLabel)
+        titleLayout.addWidget(self.titleLabel)
+        titleLayout.addStretch(1)
+        self.gpuMemLabel = QLabel('Llama: --G | Total: --/--G', self)
+        self.gpuMemLabel.setStyleSheet('font: 20px "Consolas", "Microsoft YaHei"; color: rgba(255,255,255,0.85); background: transparent;')
+        titleLayout.addWidget(self.gpuMemLabel, 0, Qt.AlignVCenter | Qt.AlignRight)
+        mainLayout.addLayout(titleLayout)
 
         self.logText = TerminalTextEdit(self)
         mainLayout.addWidget(self.logText, 1)
@@ -637,6 +644,65 @@ class LogInterface(QWidget):
         self.clearBtn.clicked.connect(lambda: self.logText.clear())
         btnLayout.addWidget(self.clearBtn)
         mainLayout.addLayout(btnLayout)
+        self._gpuLaunchBaselineUsedG = None
+        self.gpuMemTimer = QTimer(self)
+        self.gpuMemTimer.setInterval(1000)
+        self.gpuMemTimer.timeout.connect(self._updateGpuMemLabel)
+        self.gpuMemTimer.start()
+        self._updateGpuMemLabel()
+
+    def _formatGpuValue(self, value):
+        return f'{value:.1f}'.rstrip('0').rstrip('.')
+
+    def _queryGpuMemory(self):
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = subprocess.SW_HIDE
+        result = subprocess.run(
+            ['nvidia-smi', '--query-gpu=memory.used,memory.total', '--format=csv,noheader,nounits'],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            check=False,
+            startupinfo=startupinfo,
+            creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)
+        )
+        if result.returncode != 0:
+            return None
+        total_used_mb = 0.0
+        total_mem_mb = 0.0
+        for line in result.stdout.splitlines():
+            if ',' not in line:
+                continue
+            used_text, total_text = line.split(',', 1)
+            try:
+                total_used_mb += float(used_text.strip())
+                total_mem_mb += float(total_text.strip())
+            except ValueError:
+                continue
+        if total_mem_mb <= 0:
+            return None
+        used_g = total_used_mb / 1024.0
+        total_g = total_mem_mb / 1024.0
+        return used_g, total_g
+
+    def _updateGpuMemLabel(self):
+        try:
+            gpu_mem = self._queryGpuMemory()
+            if not gpu_mem:
+                self.gpuMemLabel.setText('Llama: --G | Total: --/--G')
+                return
+            used_g, total_g = gpu_mem
+            total_text = f'{self._formatGpuValue(used_g)}/{self._formatGpuValue(total_g)}G'
+            llama_text = '--G'
+            if self.worker and self.worker.isRunning() and self._gpuLaunchBaselineUsedG is not None:
+                llama_used_g = max(0.0, used_g - self._gpuLaunchBaselineUsedG)
+                llama_text = f'{self._formatGpuValue(llama_used_g)}G'
+            self.gpuMemLabel.setText(f'Llama: {llama_text} | Total: {total_text}')
+        except Exception:
+            self.gpuMemLabel.setText('Llama: --G | Total: --/--G')
 
     def launchCommand(self, command):
         """通过 pywinpty 启动命令"""
@@ -648,6 +714,8 @@ class LogInterface(QWidget):
         self.worker.dataReady.connect(self._appendOutput)
         self.worker.processFinished.connect(self._onProcessFinished)
         self.logText.worker = self.worker
+        gpu_mem = self._queryGpuMemory()
+        self._gpuLaunchBaselineUsedG = gpu_mem[0] if gpu_mem else None
         self.worker.start_process(command)
         self.launchBtn.setEnabled(False)
         self.stopBtn.setEnabled(True)
@@ -676,6 +744,7 @@ class LogInterface(QWidget):
         self.launchBtn.setEnabled(True)
         self.stopBtn.setEnabled(False)
         self.logText.worker = None
+        self._gpuLaunchBaselineUsedG = None
 
     def stopProcess(self):
         if self.worker and self.worker.isRunning():

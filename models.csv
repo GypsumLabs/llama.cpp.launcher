@@ -1,5 +1,8 @@
-m,Qwen3.5-27B,/home/gypsum/models/qwen3.5/Qwen3.5-27B-UD-Q4_K_XL.gguf
-m,Qwopus3.5-27B,/home/gypsum/models/qwen3.5/Qwopus3.5-27B-v3-Q4_K_M.gguf
-m,Gemma4-31B,/home/gypsum/models/gemma4/gemma-4-31B-it-UD-Q4_K_XL.gguf
-mm,qwen3.5/mmproj-F16,/home/gypsum/models/qwen3.5/mmproj-F16.gguf
-mm,gemma4/mmproj-BF16,/home/gypsum/models/gemma4/mmproj-BF16.gguf
+m,QwenOpus3.5-27B-Q4_K_M,/home/gypsum/models/qwen3.5/Qwopus3.5-27B-v3-Q4_K_M.gguf
+m,Qwen3.5-27B-UD-Q4_K_XL,/home/gypsum/models/qwen3.5/Qwen3.5-27B-UD-Q4_K_XL.gguf
+m,Gemma4-31B-Q4_K_S,/home/gypsum/models/gemma4/gemma-4-31B-it-Q4_K_S.gguf
+m,GemmaOpus4-31B-Q4_K_M,/home/gypsum/models/gemma4/gemma-4-31B-it-Claude-Opus-Distill.q4_k_m.gguf
+m,Gemma4-31B-UD-Q4_K_XL,/home/gypsum/models/gemma4/gemma-4-31B-it-UD-Q4_K_XL.gguf
+mm,Qwen3.5-mmproj-F16,/home/gypsum/models/qwen3.5/qwen-mmproj-F16.gguf
+mm,Gemma4-mmproj-BF16,/home/gypsum/models/gemma4/gemma-mmproj-BF16.gguf
+mm,Gemma4-Opus-mmproj-BF16,/home/gypsum/models/gemma4/gemma-opus-mmproj-BF16.gguf
