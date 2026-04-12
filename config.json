@@ -1,7 +1,7 @@
 {
   "exec_path": "./llama-cpp-turboquant/build/bin/llama-server",
-  "llm_model": "Gemma4-31B-UD-Q4_K_XL",
-  "mm_model": "Gemma4-mmproj-BF16",
+  "llm_model": "Qwen3.5-27B-UD-Q4_K_XL",
+  "mm_model": "Qwen3.5-mmproj-F16",
   "ctx_length": "128",
   "predict_length": "-1",
   "temperature": 1.0,

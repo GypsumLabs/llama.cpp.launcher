@@ -9,6 +9,13 @@ from PySide6.QtCore import Qt, QThread, Signal, QTimer
 from PySide6.QtGui import QIcon, QColor, QFont, QTextCursor
 from PySide6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QTextEdit, QPlainTextEdit, QLabel, QFrame)
 
+if sys.platform == 'win32':
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('llama.cpp.launcher')
+    except Exception:
+        pass
+
 # qfluentwidgets 在导入时会创建 QWidget，必须先创建 QApplication
 QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
 app = QApplication(sys.argv)
@@ -38,6 +45,36 @@ if getattr(sys, 'frozen', False):
     BASE_DIR = os.path.dirname(sys.executable)
 else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def getAppIcon():
+    candidates = []
+    if getattr(sys, 'frozen', False) and os.path.exists(sys.executable):
+        candidates.append(sys.executable)
+    meipass = getattr(sys, '_MEIPASS', '')
+    if meipass:
+        candidates.append(os.path.join(meipass, 'icon.ico'))
+    candidates.append(os.path.join(BASE_DIR, 'icon.ico'))
+    for candidate in candidates:
+        if not candidate or not os.path.exists(candidate):
+            continue
+        icon = QIcon(candidate)
+        if not icon.isNull():
+            return icon
+    fallback = QIcon(':/qfluentwidgets/images/logo.png')
+    if not fallback.isNull():
+        return fallback
+    return QIcon()
+
+
+def setWindowsAppId():
+    if sys.platform != 'win32':
+        return
+    try:
+        import ctypes
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID('llama.cpp.launcher')
+    except Exception:
+        pass
 
 
 def loadModels():
@@ -778,7 +815,7 @@ class MainWindow(MSFluentWindow):
     def initWindow(self):
         self.resize(900, 700)
         self.setWindowTitle('llama.cpp 启动器')
-        self.setWindowIcon(QIcon(':/qfluentwidgets/images/logo.png'))
+        self.setWindowIcon(getAppIcon())
         desktop = QApplication.screens()[0].availableGeometry()
         w, h = desktop.width(), desktop.height()
         self.move(w // 2 - self.width() // 2, h // 2 - self.height() // 2)
@@ -1023,6 +1060,8 @@ class MainWindow(MSFluentWindow):
 
 
 if __name__ == '__main__':
+    setWindowsAppId()
+    app.setWindowIcon(getAppIcon())
     setTheme(Theme.DARK)
     w = MainWindow()
     w.show()
