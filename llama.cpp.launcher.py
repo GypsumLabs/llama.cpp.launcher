@@ -371,23 +371,6 @@ class ModelInterface(BaseSettingInterface):
         self.nglCard.hBoxLayout.addWidget(self.nglSpin, 0, Qt.AlignRight)
         self.nglCard.hBoxLayout.addSpacing(16)
 
-        # 主 GPU (-mg)
-        self.mainGpuCard = SettingCard(FIF.DEVELOPER_TOOLS, '主 GPU', '多 GPU 时指定主 GPU 的设备 ID（默认 0）', self.gpuGroup)
-        self.mainGpuSpin = SpinBox(self.mainGpuCard)
-        self.mainGpuSpin.setRange(0, 15)
-        self.mainGpuSpin.setValue(0)
-        self.mainGpuSpin.setFixedWidth(CTRL_WIDTH)
-        self.mainGpuCard.hBoxLayout.addWidget(self.mainGpuSpin, 0, Qt.AlignRight)
-        self.mainGpuCard.hBoxLayout.addSpacing(16)
-
-        # 张量分割比例 (-ts)
-        self.tsSplitCard = SettingCard(FIF.SYNC, '张量分割比例', '多 GPU 时各 GPU 负载比例，如 3,7 表示 30%/70%（留空为均分）', self.gpuGroup)
-        self.tsSplitEdit = LineEdit(self.tsSplitCard)
-        self.tsSplitEdit.setPlaceholderText('均分')
-        self.tsSplitEdit.setFixedWidth(CTRL_WIDTH)
-        self.tsSplitCard.hBoxLayout.addWidget(self.tsSplitEdit, 0, Qt.AlignRight)
-        self.tsSplitCard.hBoxLayout.addSpacing(16)
-
         # 禁用内存映射 (--no-mmap)
         self.nommapCard = SettingCard(FIF.REMOVE, '禁用内存映射', '不使用 mmap 加载模型，改为直接读入内存（默认启用 mmap）', self.gpuGroup)
         self.nommapCombo = FixedComboBox(self.nommapCard)
@@ -405,11 +388,110 @@ class ModelInterface(BaseSettingInterface):
         self.numaCard.hBoxLayout.addSpacing(16)
 
         self.gpuGroup.addSettingCard(self.nglCard)
-        self.gpuGroup.addSettingCard(self.mainGpuCard)
-        self.gpuGroup.addSettingCard(self.tsSplitCard)
         self.gpuGroup.addSettingCard(self.nommapCard)
         self.gpuGroup.addSettingCard(self.numaCard)
         self.expandLayout.addWidget(self.gpuGroup)
+
+
+class MultiGpuInterface(BaseSettingInterface):
+    """多卡设置"""
+
+    def __init__(self, parent=None):
+        super().__init__('多卡设置', 'multigpu-interface', parent)
+
+        # ─────────── 设备选择 ───────────
+        self.deviceGroup = SettingCardGroup('设备选择', self.scrollWidget)
+
+        # 设备列表 (-dev)
+        self.devCard = SettingCard(FIF.DEVELOPER_TOOLS, '设备列表', '指定用于卸载的设备，如 CUDA0,CUDA1（留空为自动选择所有 GPU）', self.deviceGroup)
+        self.devEdit = LineEdit(self.devCard)
+        self.devEdit.setPlaceholderText('自动')
+        self.devEdit.setFixedWidth(CTRL_WIDTH)
+        self.devCard.hBoxLayout.addWidget(self.devEdit, 0, Qt.AlignRight)
+        self.devCard.hBoxLayout.addSpacing(16)
+
+        # 主 GPU (-mg)
+        self.mainGpuCard = SettingCard(FIF.SPEED_HIGH, '主 GPU', '指定主 GPU 的设备索引，split-mode 为 none 时使用此 GPU，为 row 时用于中间结果和 KV（默认 0）', self.deviceGroup)
+        self.mainGpuSpin = SpinBox(self.mainGpuCard)
+        self.mainGpuSpin.setRange(0, 15)
+        self.mainGpuSpin.setValue(0)
+        self.mainGpuSpin.setFixedWidth(CTRL_WIDTH)
+        self.mainGpuCard.hBoxLayout.addWidget(self.mainGpuSpin, 0, Qt.AlignRight)
+        self.mainGpuCard.hBoxLayout.addSpacing(16)
+
+        self.deviceGroup.addSettingCard(self.devCard)
+        self.deviceGroup.addSettingCard(self.mainGpuCard)
+        self.expandLayout.addWidget(self.deviceGroup)
+
+        # ─────────── 分割策略 ───────────
+        self.splitGroup = SettingCardGroup('分割策略', self.scrollWidget)
+
+        # 分割模式 (-sm)
+        self.splitModeCard = SettingCard(FIF.SYNC, '分割模式', 'none: 仅用单个 GPU；layer（默认）: 按层分割模型和 KV；row: 按行分割', self.splitGroup)
+        self.splitModeCombo = FixedComboBox(self.splitModeCard)
+        self.splitModeCombo.addItems(['layer', 'row', 'none'])
+        self.splitModeCombo.setCurrentText('layer')
+        self.splitModeCombo.setFixedWidth(CTRL_WIDTH)
+        self.splitModeCard.hBoxLayout.addWidget(self.splitModeCombo, 0, Qt.AlignRight)
+        self.splitModeCard.hBoxLayout.addSpacing(16)
+
+        # 张量分割比例 (-ts)
+        self.tsSplitCard = SettingCard(FIF.PIE_SINGLE, '张量分割比例', '各 GPU 的负载比例，如 3,1 表示 75%/25%（留空为均分）', self.splitGroup)
+        self.tsSplitEdit = LineEdit(self.tsSplitCard)
+        self.tsSplitEdit.setPlaceholderText('均分')
+        self.tsSplitEdit.setFixedWidth(CTRL_WIDTH)
+        self.tsSplitCard.hBoxLayout.addWidget(self.tsSplitEdit, 0, Qt.AlignRight)
+        self.tsSplitCard.hBoxLayout.addSpacing(16)
+
+        self.splitGroup.addSettingCard(self.splitModeCard)
+        self.splitGroup.addSettingCard(self.tsSplitCard)
+        self.expandLayout.addWidget(self.splitGroup)
+
+        # ─────────── 显存管理 ───────────
+        self.vramGroup = SettingCardGroup('显存管理', self.scrollWidget)
+
+        # KV 缓存卸载 (-kvo / --no-kv-offload)
+        self.kvOffloadCard = SettingCard(FIF.DOWNLOAD, 'KV 缓存卸载', '将 KV 缓存卸载到 GPU，禁用可省显存让更多层放入 GPU（默认启用）', self.vramGroup)
+        self.kvOffloadCombo = FixedComboBox(self.kvOffloadCard)
+        self.kvOffloadCombo.addItems(['启用', '禁用'])
+        self.kvOffloadCombo.setFixedWidth(CTRL_WIDTH)
+        self.kvOffloadCard.hBoxLayout.addWidget(self.kvOffloadCombo, 0, Qt.AlignRight)
+        self.kvOffloadCard.hBoxLayout.addSpacing(16)
+
+        # MoE 权重放 CPU (-cmoe / --cpu-moe)
+        self.cpuMoeCard = SettingCard(FIF.REMOVE, 'MoE 权重放 CPU', '将所有 MoE 专家权重保留在 CPU，可大幅节省显存（默认关闭）', self.vramGroup)
+        self.cpuMoeCombo = FixedComboBox(self.cpuMoeCard)
+        self.cpuMoeCombo.addItems(['关闭', '启用'])
+        self.cpuMoeCombo.setFixedWidth(CTRL_WIDTH)
+        self.cpuMoeCard.hBoxLayout.addWidget(self.cpuMoeCombo, 0, Qt.AlignRight)
+        self.cpuMoeCard.hBoxLayout.addSpacing(16)
+
+        # 自动适配显存 (-fit)
+        self.fitCard = SettingCard(FIF.CONSTRACT, '自动适配显存', '自动调整参数以适应设备显存（默认 on）', self.vramGroup)
+        self.fitCombo = FixedComboBox(self.fitCard)
+        self.fitCombo.addItems(['on', 'off'])
+        self.fitCombo.setCurrentText('on')
+        self.fitCombo.setFixedWidth(CTRL_WIDTH)
+        self.fitCard.hBoxLayout.addWidget(self.fitCombo, 0, Qt.AlignRight)
+        self.fitCard.hBoxLayout.addSpacing(16)
+
+        # 显存保留余量 (-fitt / --fit-target)
+        self.fitTargetCard = SettingCard(FIF.SAVE, '显存保留余量', '每个设备的显存保留余量，逗号分隔可给各卡指定不同值（默认 1024）', self.vramGroup)
+        self.fitTargetEdit = LineEdit(self.fitTargetCard)
+        self.fitTargetEdit.setPlaceholderText('1024')
+        self.fitTargetEdit.setFixedWidth(CTRL_WIDTH)
+        self.fitTargetSuffix = QLabel('MiB', self.fitTargetCard)
+        self.fitTargetSuffix.setStyleSheet('font: 14px; background: transparent;')
+        self.fitTargetCard.hBoxLayout.addWidget(self.fitTargetEdit, 0, Qt.AlignRight)
+        self.fitTargetCard.hBoxLayout.addSpacing(8)
+        self.fitTargetCard.hBoxLayout.addWidget(self.fitTargetSuffix)
+        self.fitTargetCard.hBoxLayout.addSpacing(16)
+
+        self.vramGroup.addSettingCard(self.kvOffloadCard)
+        self.vramGroup.addSettingCard(self.cpuMoeCard)
+        self.vramGroup.addSettingCard(self.fitCard)
+        self.vramGroup.addSettingCard(self.fitTargetCard)
+        self.expandLayout.addWidget(self.vramGroup)
 
 
 class ServerInterface(BaseSettingInterface):
@@ -795,6 +877,7 @@ class MainWindow(MSFluentWindow):
         llm_models, mm_models = loadModels()
         self.basicInterface = BasicInterface(self)
         self.modelInterface = ModelInterface(llm_models, mm_models, self)
+        self.multiGpuInterface = MultiGpuInterface(self)
         self.serverInterface = ServerInterface(self)
         self.logInterface = LogInterface(self)
 
@@ -809,6 +892,7 @@ class MainWindow(MSFluentWindow):
     def initNavigation(self):
         self.addSubInterface(self.basicInterface, FIF.HOME, '基础设置')
         self.addSubInterface(self.modelInterface, FIF.IOT, '模型设置')
+        self.addSubInterface(self.multiGpuInterface, FIF.SPEED_HIGH, '多卡设置')
         self.addSubInterface(self.serverInterface, FIF.WIFI, '服务器设置')
         self.addSubInterface(self.logInterface, FIF.COMMAND_PROMPT, '运行日志')
 
@@ -871,16 +955,35 @@ class MainWindow(MSFluentWindow):
 
         # GPU 加速
         parts.extend(['-ngl', str(mi.nglSpin.value())])
-        if mi.mainGpuSpin.value() != 0:
-            parts.extend(['-mg', str(mi.mainGpuSpin.value())])
-        ts = mi.tsSplitEdit.text().strip()
-        if ts:
-            parts.extend(['-ts', ts])
         if mi.nommapCombo.currentText() == '启用':
             parts.append('--no-mmap')
         numa = mi.numaCombo.currentText()
         if numa != '关闭':
             parts.extend(['--numa', numa])
+
+        # 多卡设置
+        mgi = self.multiGpuInterface
+        dev = mgi.devEdit.text().strip()
+        if dev:
+            parts.extend(['-dev', dev])
+        if mgi.mainGpuSpin.value() != 0:
+            parts.extend(['-mg', str(mgi.mainGpuSpin.value())])
+        sm = mgi.splitModeCombo.currentText()
+        if sm != 'layer':
+            parts.extend(['-sm', sm])
+        ts = mgi.tsSplitEdit.text().strip()
+        if ts:
+            parts.extend(['-ts', ts])
+        if mgi.kvOffloadCombo.currentText() == '禁用':
+            parts.append('--no-kv-offload')
+        if mgi.cpuMoeCombo.currentText() == '启用':
+            parts.append('--cpu-moe')
+        fit = mgi.fitCombo.currentText()
+        if fit != 'on':
+            parts.extend(['-fit', fit])
+        fitTarget = mgi.fitTargetEdit.text().strip()
+        if fitTarget:
+            parts.extend(['-fitt', fitTarget])
 
         # 服务器 - 网络
         parts.extend(['--host', si.hostEdit.text().strip()])
@@ -934,10 +1037,18 @@ class MainWindow(MSFluentWindow):
         mi.imgMaxEdit.textChanged.connect(self._updateCommandPreview)
         mi.imgMinEdit.textChanged.connect(self._updateCommandPreview)
         mi.nglSpin.valueChanged.connect(self._updateCommandPreview)
-        mi.mainGpuSpin.valueChanged.connect(self._updateCommandPreview)
-        mi.tsSplitEdit.textChanged.connect(self._updateCommandPreview)
         mi.nommapCombo.currentIndexChanged.connect(self._updateCommandPreview)
         mi.numaCombo.currentIndexChanged.connect(self._updateCommandPreview)
+
+        mgi = self.multiGpuInterface
+        mgi.devEdit.textChanged.connect(self._updateCommandPreview)
+        mgi.mainGpuSpin.valueChanged.connect(self._updateCommandPreview)
+        mgi.splitModeCombo.currentIndexChanged.connect(self._updateCommandPreview)
+        mgi.tsSplitEdit.textChanged.connect(self._updateCommandPreview)
+        mgi.kvOffloadCombo.currentIndexChanged.connect(self._updateCommandPreview)
+        mgi.cpuMoeCombo.currentIndexChanged.connect(self._updateCommandPreview)
+        mgi.fitCombo.currentIndexChanged.connect(self._updateCommandPreview)
+        mgi.fitTargetEdit.textChanged.connect(self._updateCommandPreview)
 
         si.hostEdit.textChanged.connect(self._updateCommandPreview)
         si.portSpin.valueChanged.connect(self._updateCommandPreview)
@@ -968,6 +1079,7 @@ class MainWindow(MSFluentWindow):
     def _saveConfig(self):
         bi = self.basicInterface
         mi = self.modelInterface
+        mgi = self.multiGpuInterface
         si = self.serverInterface
         cfg = {
             'exec_path': bi.execPathEdit.text(),
@@ -987,10 +1099,16 @@ class MainWindow(MSFluentWindow):
             'image_max_tokens': mi.imgMaxEdit.text(),
             'image_min_tokens': mi.imgMinEdit.text(),
             'ngl': mi.nglSpin.value(),
-            'main_gpu': mi.mainGpuSpin.value(),
-            'tensor_split': mi.tsSplitEdit.text(),
             'nommap': mi.nommapCombo.currentText(),
             'numa': mi.numaCombo.currentText(),
+            'device': mgi.devEdit.text(),
+            'main_gpu': mgi.mainGpuSpin.value(),
+            'split_mode': mgi.splitModeCombo.currentText(),
+            'tensor_split': mgi.tsSplitEdit.text(),
+            'kv_offload': mgi.kvOffloadCombo.currentText(),
+            'cpu_moe': mgi.cpuMoeCombo.currentText(),
+            'fit': mgi.fitCombo.currentText(),
+            'fit_target': mgi.fitTargetEdit.text(),
             'host': si.hostEdit.text(),
             'port': si.portSpin.value(),
             'api_key': si.apiKeyEdit.text(),
@@ -1020,6 +1138,7 @@ class MainWindow(MSFluentWindow):
             return
         bi = self.basicInterface
         mi = self.modelInterface
+        mgi = self.multiGpuInterface
         si = self.serverInterface
         bi.execPathEdit.setText(cfg.get('exec_path', bi.execPathEdit.text()))
         mi.llmCombo.setCurrentText(cfg.get('llm_model', mi.llmCombo.currentText()))
@@ -1038,10 +1157,16 @@ class MainWindow(MSFluentWindow):
         mi.imgMaxEdit.setText(cfg.get('image_max_tokens', mi.imgMaxEdit.text()))
         mi.imgMinEdit.setText(cfg.get('image_min_tokens', mi.imgMinEdit.text()))
         mi.nglSpin.setValue(cfg.get('ngl', mi.nglSpin.value()))
-        mi.mainGpuSpin.setValue(cfg.get('main_gpu', mi.mainGpuSpin.value()))
-        mi.tsSplitEdit.setText(cfg.get('tensor_split', mi.tsSplitEdit.text()))
         mi.nommapCombo.setCurrentText(cfg.get('nommap', mi.nommapCombo.currentText()))
         mi.numaCombo.setCurrentText(cfg.get('numa', mi.numaCombo.currentText()))
+        mgi.devEdit.setText(cfg.get('device', mgi.devEdit.text()))
+        mgi.mainGpuSpin.setValue(cfg.get('main_gpu', mgi.mainGpuSpin.value()))
+        mgi.splitModeCombo.setCurrentText(cfg.get('split_mode', mgi.splitModeCombo.currentText()))
+        mgi.tsSplitEdit.setText(cfg.get('tensor_split', mgi.tsSplitEdit.text()))
+        mgi.kvOffloadCombo.setCurrentText(cfg.get('kv_offload', mgi.kvOffloadCombo.currentText()))
+        mgi.cpuMoeCombo.setCurrentText(cfg.get('cpu_moe', mgi.cpuMoeCombo.currentText()))
+        mgi.fitCombo.setCurrentText(cfg.get('fit', mgi.fitCombo.currentText()))
+        mgi.fitTargetEdit.setText(cfg.get('fit_target', mgi.fitTargetEdit.text()))
         si.hostEdit.setText(cfg.get('host', si.hostEdit.text()))
         si.portSpin.setValue(cfg.get('port', si.portSpin.value()))
         si.apiKeyEdit.setText(cfg.get('api_key', si.apiKeyEdit.text()))
